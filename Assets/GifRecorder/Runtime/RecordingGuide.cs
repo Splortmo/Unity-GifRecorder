@@ -57,6 +57,7 @@ namespace GifRecorder
         void Awake()
         {
             if (recorder == null) recorder = GetComponent<ScreenRecorder>();
+            if (recorder == null) recorder = ScreenRecorder.Instance;
             if (recorder == null) recorder = FindAnyObjectByType<ScreenRecorder>();
             Build();
         }

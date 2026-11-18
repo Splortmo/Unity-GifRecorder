@@ -34,12 +34,11 @@ namespace GifRecorder.Demo
 
         void Start()
         {
-            if (recorder == null) recorder = FindAnyObjectByType<ScreenRecorder>();
-            if (recorder != null)
-            {
-                recorder.RecordingSaved += path => lastSaved = path;
-                recorder.ScreenshotSaved += path => lastSaved = path;
-            }
+            // The scene's recorder registers itself as the singleton in Awake; create one if the scene has none.
+            if (recorder == null) recorder = ScreenRecorder.Instance;
+            if (recorder == null) recorder = ScreenRecorder.Init(persistent: true, showBoundary: true);
+            recorder.RecordingSaved += path => lastSaved = path;
+            recorder.ScreenshotSaved += path => lastSaved = path;
 
             cubes = new Transform[cubeCount];
             var block = new MaterialPropertyBlock();
@@ -139,7 +138,7 @@ namespace GifRecorder.Demo
             if (record > 0f)
             {
                 settings.maxDuration = record;
-                recorder.StartRecording();
+                ScreenRecorder.StartRecording();
             }
         }
 
@@ -209,9 +208,9 @@ namespace GifRecorder.Demo
             using (new GUILayout.HorizontalScope())
             {
                 if (GUILayout.Button(recorder.IsRecording ? "Stop Recording (F9)" : "Start Recording (F9)", GUILayout.Height(30)))
-                    recorder.ToggleRecording();
+                    ScreenRecorder.ToggleRecording();
                 if (GUILayout.Button("Screenshot (F8)", GUILayout.Height(30), GUILayout.Width(120)))
-                    recorder.TakeScreenshot();
+                    ScreenRecorder.TakeScreenshot();
             }
             settings.screenshotIncludeUI = GUILayout.Toggle(settings.screenshotIncludeUI, " Screenshot includes UI");
 

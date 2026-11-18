@@ -165,20 +165,26 @@ namespace GifRecorder
 
         void Start()
         {
+            if (duplicate) return;
             SyncGuide();
-            if (recordOnStart) StartRecording();
+            if (recordOnStart) BeginRecording(null);
         }
 
         void Update()
         {
+            if (duplicate) return;
             if (!guideSynced) SyncGuide();
-            if (enableHotkey && KeyPressed(toggleKey)) ToggleRecording();
-            if (enableHotkey && KeyPressed(screenshotKey)) TakeScreenshot();
+            if (enableHotkey && KeyPressed(toggleKey))
+            {
+                if (IsRecording) EndRecording();
+                else BeginRecording(null);
+            }
+            if (enableHotkey && KeyPressed(screenshotKey)) CaptureScreenshot(settings.screenshotIncludeUI, null);
 
-            if (active != null && settings != null && active.Settings.maxDuration > 0f &&
+            if (active != null && active.Settings.maxDuration > 0f &&
                 active.Elapsed(Time.unscaledTimeAsDouble) >= active.Settings.maxDuration)
             {
-                StopRecording();
+                EndRecording();
             }
 
             PollDraining();
@@ -216,8 +222,8 @@ namespace GifRecorder
         const int toggleKey = 0, screenshotKey = 0;
 #endif
 
-        /// <summary>Starts a new recording. Does nothing if one is already running.</summary>
-        public void StartRecording()
+        /// <summary>Starts a new recording with a copy of <paramref name="source"/> (null = <see cref="Settings"/>).</summary>
+        void BeginRecording(RecorderSettings source)
         {
             if (active != null) return;
             if (!isActiveAndEnabled)
@@ -226,7 +232,7 @@ namespace GifRecorder
                 return;
             }
 
-            var snapshot = settings.Clone();
+            var snapshot = (source ?? settings).Clone();
             snapshot.Validate();
             if (snapshot.preserveTransparency && snapshot.captureSource != CaptureSource.Camera)
                 Debug.LogWarning("[GifRecorder] Preserve Transparency needs Capture Source = Camera: the screen back buffer " +
@@ -241,17 +247,14 @@ namespace GifRecorder
             {
                 Debug.LogException(e, this);
                 RecordingFailed?.Invoke(e);
+                ReleaseIfIdle();
                 return;
             }
 
             if (captureLoop == null) captureLoop = StartCoroutine(CaptureLoop());
         }
 
-        /// <summary>
-        /// Stops the current recording. The returned task completes (on the main thread when awaited) with the
-        /// path of the written file; it completes with null if nothing was being recorded.
-        /// </summary>
-        public Task<string> StopRecording()
+        Task<string> EndRecording()
         {
             if (active == null) return Task.FromResult<string>(null);
 
@@ -279,15 +282,10 @@ namespace GifRecorder
                     RecordingSaved?.Invoke(t.Result);
                     onRecordingSaved?.Invoke(t.Result);
                 }
+                ReleaseIfIdle();
             }, TaskScheduler.FromCurrentSynchronizationContext());
 
             return task;
-        }
-
-        public void ToggleRecording()
-        {
-            if (IsRecording) StopRecording();
-            else StartRecording();
         }
 
         IEnumerator CaptureLoop()
@@ -320,7 +318,7 @@ namespace GifRecorder
 
         void OnDisable()
         {
-            if (active != null) StopRecording();
+            if (active != null) EndRecording();
             FlushAll();
             if (captureLoop != null)
             {
@@ -331,7 +329,7 @@ namespace GifRecorder
 
         void OnApplicationQuit()
         {
-            if (active != null) StopRecording();
+            if (active != null) EndRecording();
             FlushAll();
 #if !UNITY_EDITOR
             // Background threads die with the player process, so give pending files a chance to finish.

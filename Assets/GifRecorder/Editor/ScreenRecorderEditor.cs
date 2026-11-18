@@ -93,6 +93,7 @@ namespace GifRecorder.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Control", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("persistent"), new GUIContent("Persistent (Don't Destroy On Load)"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("recordOnStart"));
             var hotkey = serializedObject.FindProperty("enableHotkey");
             EditorGUILayout.PropertyField(hotkey);
@@ -119,11 +120,12 @@ namespace GifRecorder.Editor
         {
             using (new EditorGUILayout.HorizontalScope())
             {
-                using (new EditorGUI.DisabledScope(!Application.isPlaying))
+                // The static calls use ScreenRecorder.Instance, which is this recorder unless it is a removed duplicate.
+                using (new EditorGUI.DisabledScope(!Application.isPlaying || ScreenRecorder.Instance != recorder))
                 {
                     var label = recorder.IsRecording ? "Stop Recording" : "Start Recording";
-                    if (GUILayout.Button(label, GUILayout.Height(28))) recorder.ToggleRecording();
-                    if (GUILayout.Button("Screenshot", GUILayout.Height(28), GUILayout.Width(90))) recorder.TakeScreenshot();
+                    if (GUILayout.Button(label, GUILayout.Height(28))) ScreenRecorder.ToggleRecording();
+                    if (GUILayout.Button("Screenshot", GUILayout.Height(28), GUILayout.Width(90))) ScreenRecorder.TakeScreenshot();
                 }
                 if (GUILayout.Button("Open Folder", GUILayout.Height(28), GUILayout.Width(100)))
                 {

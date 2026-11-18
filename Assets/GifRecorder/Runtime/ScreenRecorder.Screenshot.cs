@@ -21,22 +21,12 @@ namespace GifRecorder
         /// <summary>True while a screenshot that includes the UI is being taken, so the guide hides itself.</summary>
         internal bool IsGuideSuppressed => guideSuppressed > 0;
 
-        /// <summary>
-        /// Saves a full-resolution PNG of the next rendered frame, using <see cref="RecorderSettings.screenshotIncludeUI"/>.
-        /// Works while a recording is running. The task completes on the main thread with the file path.
-        /// For custom sizes or cameras, or to get the bytes instead of a file, use <see cref="ScreenshotCapture"/>.
-        /// </summary>
-        public Task<string> TakeScreenshot() => TakeScreenshot(settings.screenshotIncludeUI);
-
-        /// <param name="includeUI">
-        /// True: the final screen image, including Screen Space - Overlay UI (always opaque).
-        /// False: the capture camera (or Camera.main) rendered on its own, keeping transparency if
-        /// <see cref="RecorderSettings.preserveTransparency"/> is on.
-        /// </param>
-        public Task<string> TakeScreenshot(bool includeUI)
+        /// <summary>Saves a PNG of the next rendered frame using a copy of <paramref name="source"/> (null = <see cref="Settings"/>).</summary>
+        Task<string> CaptureScreenshot(bool includeUI, RecorderSettings source)
         {
-            var s = settings.Clone();
+            var s = (source ?? settings).Clone();
             s.Validate();
+            pendingScreenshots++;
 
             // The guide is screen-space UI: hide it while a screenshot with UI is taken.
             bool suppress = includeUI && guide != null && guide.isActiveAndEnabled;
@@ -64,23 +54,31 @@ namespace GifRecorder
             string path = CreateOutputPath(s, "Screenshot", "png");
             return capture.ContinueWith(t =>
             {
-                if (suppress) guideSuppressed--;
-                if (t.IsFaulted)
+                try
                 {
-                    var error = t.Exception.GetBaseException();
-                    Debug.LogError($"[GifRecorder] Screenshot failed: {error.Message}");
-                    throw error;
+                    if (suppress) guideSuppressed--;
+                    if (t.IsFaulted)
+                    {
+                        var error = t.Exception.GetBaseException();
+                        Debug.LogError($"[GifRecorder] Screenshot failed: {error.Message}");
+                        throw error;
+                    }
+
+                    string directory = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+                    File.WriteAllBytes(path, t.Result);
+
+                    Debug.Log($"[GifRecorder] Saved screenshot to {path}");
+                    WebGLBridge.Publish(path, s.webGLDownload, "image/png");
+                    ScreenshotSaved?.Invoke(path);
+                    onScreenshotSaved?.Invoke(path);
+                    return path;
                 }
-
-                string directory = Path.GetDirectoryName(path);
-                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-                File.WriteAllBytes(path, t.Result);
-
-                Debug.Log($"[GifRecorder] Saved screenshot to {path}");
-                WebGLBridge.Publish(path, s.webGLDownload, "image/png");
-                ScreenshotSaved?.Invoke(path);
-                onScreenshotSaved?.Invoke(path);
-                return path;
+                finally
+                {
+                    pendingScreenshots--;
+                    ReleaseIfIdle();
+                }
             }, TaskScheduler.FromCurrentSynchronizationContext());
         }
     }

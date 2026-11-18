@@ -53,7 +53,7 @@ information to your own UI.
 
 ## Screenshots
 
-Press **F8** (or call `recorder.TakeScreenshot()`) to save a full-resolution PNG next to the recordings. **Include UI**
+Press **F8** (or call `ScreenRecorder.TakeScreenshot()`) to save a full-resolution PNG next to the recordings. **Include UI**
 (in the recorder's *Screenshot* section) chooses what is captured:
 
 * **On:** the final screen image, including Screen Space - Overlay UI. Always opaque. The guide lines are hidden for
@@ -93,21 +93,36 @@ Screen Space - Overlay UI.
 
 ## Scripting
 
+`ScreenRecorder` is a singleton, and recording and screenshots are static calls on it:
+
 ```csharp
 using GifRecorder;
 
-var recorder = GetComponent<ScreenRecorder>();
+// Optional: create the recorder up front. persistent = DontDestroyOnLoad until you destroy it,
+// showBoundary = show the on-screen guide framing the recorded area (never recorded itself).
+var recorder = ScreenRecorder.Init(persistent: true, showBoundary: true);
 recorder.Settings.format = RecordingFormat.Apng;
 recorder.Settings.captureSource = CaptureSource.Camera;
 recorder.Settings.preserveTransparency = true;
-recorder.StartRecording();
 
+ScreenRecorder.StartRecording();
 // later…
-string path = await recorder.StopRecording();   // completes once the file is written
+string path = await ScreenRecorder.StopRecording();   // completes once the file is written
+
+string png = await ScreenRecorder.TakeScreenshot();    // or TakeScreenshot(includeUI: false)
 ```
 
-`RecordingSaved` / `RecordingFailed` events and the `On Recording Saved` UnityEvent are raised on the main thread.
-Settings are copied when a recording starts. A new recording can start while the previous one is still being written.
+* `ScreenRecorder.Instance` is the current recorder, or null. A recorder placed in a scene registers itself (its
+  **Persistent** checkbox controls DontDestroyOnLoad). If one already exists, any later one removes itself.
+* `Init` on an existing recorder reconfigures it instead of creating a second one.
+* **Without `Init`:** if no recorder exists, `StartRecording` and `TakeScreenshot` create a temporary one. It has no
+  guide, isn't kept across scene loads, and destroys itself once its recording or screenshot has been written.
+* `StartRecording` and `TakeScreenshot` accept an optional `RecorderSettings` to use instead of `Settings` for that
+  one job. `StartRecording` returns the recorder, so you can subscribe to its events.
+
+`RecordingSaved` / `RecordingFailed` / `ScreenshotSaved` events and the `On Recording Saved` UnityEvent are raised on the
+main thread. Settings are copied when a recording starts. A new recording can start while the previous one is still
+being written.
 
 **WebGL:** every finished file also fires a DOM event on `window`, so a web page can upload or display it:
 
