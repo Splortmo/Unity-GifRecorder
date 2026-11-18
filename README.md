@@ -11,6 +11,17 @@ main thread:
 
 Files are streamed to disk as they're encoded, so memory use doesn't grow with recording length.
 
+**Compatibility:** Unity 6 (6000.0) and newer, URP or the built-in render pipeline. Developed on Unity 6000.3.
+
+**Live demo:** [splortmo.github.io/Unity-GifRecorder](https://splortmo.github.io/Unity-GifRecorder/) (WebGL build of the demo
+scene; recordings are downloaded by the browser).
+
+## Installation
+
+Download `GifRecorder-<version>.unitypackage` from the [Releases](https://github.com/Splortmo/Unity-GifRecorder/releases)
+page and import it (**Assets ▸ Import Package ▸ Custom Package…**), or copy `Assets/GifRecorder` from this repository
+into your project.
+
 ## Quick start
 
 1. Add a recorder: **GameObject ▸ Screen Recorder**, or add the `Screen Recorder` component to any object.
@@ -20,7 +31,7 @@ Files are streamed to disk as they're encoded, so memory use doesn't grow with r
    * players: `Application.persistentDataPath/Recordings/`
    * WebGL: the same path (IndexedDB), plus a browser download.
 
-`Demo/RecorderDemo.unity` contains animated shapes and an on-screen control panel (format, fps, transparency, record).
+`Assets/GifRecorder/Demo/RecorderDemo.unity` contains animated shapes and an on-screen control panel (format, fps, transparency, record).
 
 ## Fixed output size and guide lines
 
@@ -101,9 +112,12 @@ Settings are copied when a recording starts. A new recording can start while the
 
 ```js
 window.addEventListener("gifrecorder:saved", e => {
-  const { name, mimeType, blob, url } = e.detail;   // url is an object URL for blob
+  const { name, mimeType, blob, url } = e.detail;   // url is an object URL for blob, revoked after 60 s
 });
 ```
+
+To keep a file for longer, hold on to `blob` (or call `URL.createObjectURL(blob)` yourself). Set **WebGL Download**
+off to only raise the event without starting a download.
 
 ## Settings
 
@@ -154,3 +168,11 @@ plays back at real speed even if the frame rate fluctuates.
   once per captured frame.
 * If the window is resized during a recording, frames are rescaled to the size chosen when recording started.
 * Add `Recordings/` to your `.gitignore`.
+
+## License
+
+GifRecorder is licensed under the [MIT License with the Commons Clause 1.0](LICENSE.txt).
+
+## AI disclosure
+
+This project was developed with the assistance of AI (Claude by Anthropic). Code was AI-assisted and reviewed and tested by the author.
