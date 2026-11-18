@@ -11,7 +11,8 @@ main thread:
 
 Files are streamed to disk as they're encoded, so memory use doesn't grow with recording length.
 
-**Compatibility:** Unity 6 (6000.0) and newer, URP or the built-in render pipeline. Developed on Unity 6000.3.
+**Compatibility:** Unity 2022.3 LTS and newer (including Unity 6), URP or the built-in render pipeline, including
+WebGL. Developed on Unity 6000.3; compiles without errors or warnings on 2022.3 and 2023.2.
 
 **Live demo:** [splortmo.github.io/Unity-GifRecorder](https://splortmo.github.io/Unity-GifRecorder/) (WebGL build of the demo
 scene; recordings are downloaded by the browser).
