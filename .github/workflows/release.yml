@@ -1,0 +1,82 @@
+name: Release Unity package
+
+# Builds Assets/GifRecorder (+ README.md and LICENSE.txt) into a .unitypackage and publishes it as a
+# GitHub release, but only when the project version (Player Settings > Version,
+# i.e. bundleVersion in ProjectSettings.asset) has no release tag yet.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ProjectSettings/ProjectSettings.asset
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Read project version
+        id: version
+        run: |
+          version=$(grep -m1 -E '^\s*bundleVersion:' ProjectSettings/ProjectSettings.asset | sed -E 's/^\s*bundleVersion:\s*//' | tr -d '\r[:space:]')
+          if [ -z "$version" ]; then
+            echo "::error::Could not read bundleVersion from ProjectSettings.asset"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "Project version: $version"
+
+      - name: Check whether this version was already released
+        id: check
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists - version unchanged, skipping release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New version $TAG - releasing."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.release == 'true'
+        with:
+          python-version: '3.x'
+
+      - name: Build .unitypackage
+        if: steps.check.outputs.release == 'true'
+        id: build
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          out="GifRecorder-$VERSION.unitypackage"
+          python .github/scripts/build_unitypackage.py Assets/GifRecorder "$out" \
+            --extra README.md:Assets/GifRecorder/README.md \
+            --extra LICENSE.txt:Assets/GifRecorder/LICENSE.txt
+          echo "file=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        if: steps.check.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          FILE: ${{ steps.build.outputs.file }}
+        run: |
+          gh release create "$TAG" "$FILE" \
+            --target "$GITHUB_SHA" \
+            --title "GifRecorder $TAG" \
+            --generate-notes
