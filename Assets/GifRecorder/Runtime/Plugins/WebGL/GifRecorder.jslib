@@ -20,5 +20,9 @@ mergeInto(LibraryManager.library, {
       link.click();
       document.body.removeChild(link);
     }
+
+    // Release the object URL once the download and any listeners have had time to read it.
+    // Listeners that need the file for longer should keep detail.blob instead.
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
   }
 });
